@@ -5,10 +5,20 @@ import { dailyUse, reorderPoint, targetStock } from "./rop";
 import { cfg } from "./config";
 import pLimit from "p-limit";
 import { getStockBySKU } from "./inventory";
+import { db } from "./db";
 
 export async function runPipeline(today = new Date(), opts?: { withInventory?: boolean }) {
   // 1) proizvodi
   const products = await fetchAllProducts();
+  // upis u bazu
+  await db("products").delete();
+  if (products.length) {
+    await db.batchInsert(
+      "products",
+      products.map(p => ({ id: p.id, data: JSON.stringify(p) })),
+      30
+    );
+  }
   await new Promise(r => setTimeout(r, 300));
 
   // 2) lista porudžbina (headeri)
@@ -26,6 +36,19 @@ export async function runPipeline(today = new Date(), opts?: { withInventory?: b
       return od;
     }))
   );
+
+  // upis porudžbina u bazu
+  await db("orders").delete();
+  if (details.length) {
+    await db.batchInsert(
+      "orders",
+      details.map(d => ({
+        id: Number(d.id || d.order_id || d.sys_id),
+        data: JSON.stringify(d)
+      })),
+      30
+    );
+  }
 
   // 4) razvuci stavke u SaleRow
   const sales: SaleRow[] = details.flatMap(explodeOrderToSales);
@@ -47,7 +70,7 @@ export async function runPipeline(today = new Date(), opts?: { withInventory?: b
     const safety = r.cls === "A" ? cfg.safetyA : r.cls === "B" ? cfg.safetyB : cfg.safetyC;
     const rop = reorderPoint(d, cfg.defaultLeadTime, safety);
     const tgt = targetStock(d, cfg.defaultLeadTime, safety, 14);
-    return { sku: r.sku, class: r.cls as "A"|"B"|"C", qtyYear, daily: Number(d.toFixed(3)), rop, target: tgt, onHand: null, suggestOrder: tgt };
+    return { sku: r.sku, class: r.cls as "A"|"B"|"C", qtyYear, daily: Number(d.toFixed(3)), rop, target: tgt, onHand: null as number | null, suggestOrder: tgt };
   });
 
   // 8) (opciono) povuci onHand

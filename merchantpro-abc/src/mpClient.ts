@@ -1,10 +1,12 @@
-// src/mpClient.ts
-type MPError = Error & { status?: number; name?: string; reset_time?: string };
+import 'dotenv/config';
 
-const sleep = (ms:number) => new Promise(res => setTimeout(res, ms));
+// src/mpClient.ts
+export type MPError = Error & { status?: number; name?: string; reset_time?: string };
+
+const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 async function mpGetJson(path: string) {
-  const base = (process.env.MP_BASE_URL || "").replace(/\/+$/,"");
+  const base = (process.env.MP_BASE_URL || "").replace(/\/+$/, "");
   const url = `${base}/api${path}`; // primer: https://.../api/orders?...
   const r = await fetch(url, {
     headers: {
@@ -75,4 +77,17 @@ export async function fetchAllProducts(max = Infinity) {
       if (page.length < limit) break;
       start += limit;
     } catch (e: any) {
-      if (e?.status
+      if (e?.status === 404 && (e?.name === "records_not_found" || /records_not_found/i.test(e?.message || ""))) {
+        break;
+      }
+      if (e?.status === 429) {
+        const waitMs = e?.reset_time ? Math.max(0, Date.parse(e.reset_time) - Date.now()) : 1200;
+        await sleep(waitMs);
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  return out.slice(0, max);
+}
