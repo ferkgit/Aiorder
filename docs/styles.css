@@ -1,0 +1,22 @@
+body.dark {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+body.dark pre {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark input {
+  background: #1f2937;
+  color: #f3f4f6;
+  border: 1px solid #4b5563;
+}
+
+body.dark button {
+  background: #4b5563;
+  color: #f9fafb;
+  border: none;
+}
+

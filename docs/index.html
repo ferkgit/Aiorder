@@ -2,6 +2,7 @@
 <meta charset="utf-8"/>
 <title>AI Order – health & sync test</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles.css"/>
 <style>
   body{font:14px system-ui, sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem}
   input{width:100%;max-width:560px}
@@ -23,6 +24,7 @@
   <input id="api" placeholder="https://<tvoj-8080-URL>" />
   <button id="health">Test /health</button>
   <button id="sync">Test /sync (mali)</button>
+  <button id="theme">🌓 Tema</button>
 </div>
 
 <p class="muted">Može i preko URL parametra: <code>?api=https://…</code> (auto-popunjava polje).</p>
@@ -69,5 +71,9 @@
     const url = base + '/sync?withInventory=1&maxOrders=10&maxProducts=100&export=0';
     try { await doFetch(url, { method: 'POST' }); }
     catch(e){ $('out').textContent = 'ERROR: ' + (e && e.message || e); }
+  };
+
+  $('theme').onclick = () => {
+    document.body.classList.toggle('dark');
   };
 </script>
