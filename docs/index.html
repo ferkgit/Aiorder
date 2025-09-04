@@ -8,6 +8,10 @@
   pre{white-space:pre-wrap;background:#f6f8fa;border:1px solid #e1e4e8;border-radius:6px;padding:10px}
   .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
   .muted{color:#6b7280;font-size:.85rem}
+  .tab{cursor:pointer}
+  .tab.active{font-weight:bold}
+  #out pre{display:none}
+  #out pre.active{display:block}
 </style>
 <h1>AI Order – Test connection</h1>
 
@@ -28,7 +32,15 @@
 <p class="muted">Može i preko URL parametra: <code>?api=https://…</code> (auto-popunjava polje).</p>
 
 <h3>Rezultat</h3>
-<pre id="out">—</pre>
+<div id="out">
+  <div class="row">
+    <button class="tab active" data-tab="json">JSON</button>
+    <button class="tab" data-tab="raw">Raw</button>
+    <button id="copy">Copy</button>
+  </div>
+  <pre id="out-json" class="active"></pre>
+  <pre id="out-raw"></pre>
+</div>
 
 <script>
   const $ = id => document.getElementById(id);
@@ -46,28 +58,53 @@
     localStorage.setItem('aiorder.api', base);
     return base;
   }
+
+  function show(tab){
+    ['json','raw'].forEach(id=>{
+      $('out-' + id).classList.toggle('active', id === tab);
+      document.querySelector(`[data-tab="${id}"]`).classList.toggle('active', id === tab);
+    });
+  }
+  function setOut(msg){
+    $('out-json').textContent = $('out-raw').textContent = msg;
+    show('raw');
+  }
   async function doFetch(url, opts){
-    $('out').textContent = 'FETCH ' + url + ' …';
+    setOut('FETCH ' + url + ' …');
     const r = await fetch(url, opts);
     const text = await r.text();
-    let body;
-    try { body = JSON.parse(text); } catch { body = text; }
-    $('out').textContent = 'HTTP ' + r.status + ' ' + r.statusText + ':\n' +
-      (typeof body === 'string' ? body : JSON.stringify(body, null, 2));
+    const status = 'HTTP ' + r.status + ' ' + r.statusText + ':\n';
+    $('out-raw').textContent = status + text;
+    try {
+      const body = JSON.parse(text);
+      $('out-json').textContent = status + JSON.stringify(body, null, 2);
+      show('json');
+    } catch {
+      $('out-json').textContent = status + 'Invalid JSON';
+      show('raw');
+    }
   }
+
+  document.querySelectorAll('#out .tab').forEach(btn=>{
+    btn.onclick = () => show(btn.dataset.tab);
+  });
+  $('copy').onclick = ()=>{
+    const active = document.querySelector('#out pre.active');
+    navigator.clipboard.writeText(active.textContent);
+  };
 
   $('health').onclick = async ()=>{
     const base = setApi($('api').value);
-    if (!base) return $('out').textContent = 'Unesi API Base URL.';
+    if (!base) return setOut('Unesi API Base URL.');
     try { await doFetch(base + '/health'); }
-    catch(e){ $('out').textContent = 'ERROR: ' + (e && e.message || e); }
+    catch(e){ setOut('ERROR: ' + (e && e.message || e)); }
   };
 
   $('sync').onclick = async ()=>{
     const base = setApi($('api').value);
-    if (!base) return $('out').textContent = 'Unesi API Base URL.';
+    if (!base) return setOut('Unesi API Base URL.');
     const url = base + '/sync?withInventory=1&maxOrders=10&maxProducts=100&export=0';
     try { await doFetch(url, { method: 'POST' }); }
-    catch(e){ $('out').textContent = 'ERROR: ' + (e && e.message || e); }
+    catch(e){ setOut('ERROR: ' + (e && e.message || e)); }
   };
 </script>
