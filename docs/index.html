@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8"/>
+<title>AI Order – health & sync test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  body{font:14px system-ui, sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem}
+  input{width:100%;max-width:560px}
+  pre{white-space:pre-wrap;background:#f6f8fa;border:1px solid #e1e4e8;border-radius:6px;padding:10px}
+  .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .muted{color:#6b7280;font-size:.85rem}
+</style>
+<h1>AI Order – Test connection</h1>
+
+<p class="muted">
+  1) U polje ispod nalepi <b>HTTPS forwarded</b> URL backend-a (Codespaces port 8080, Visibility: Public), npr.<br>
+  <code>https://8080-xxxxxxxxxxxxxxxx-xxxxx.app.github.dev</code>
+</p>
+
+<div class="row">
+  <label for="api"><b>API Base URL</b></label>
+</div>
+<div class="row">
+  <input id="api" placeholder="https://<tvoj-8080-URL>" />
+  <button id="health">Test /health</button>
+  <button id="sync">Test /sync (mali)</button>
+</div>
+
+<p class="muted">Može i preko URL parametra: <code>?api=https://…</code> (auto-popunjava polje).</p>
+
+<h3>Rezultat</h3>
+<pre id="out">—</pre>
+
+<script>
+  const $ = id => document.getElementById(id);
+  // init iz ?api= ili localStorage
+  (function init(){
+    const params = new URLSearchParams(location.search);
+    const qp = params.get('api');
+    const saved = localStorage.getItem('aiorder.api');
+    const val = qp || saved || '';
+    if (val) $('api').value = val;
+  })();
+
+  function setApi(val){
+    const base = String(val || '').trim().replace(/\/+$/,'');
+    localStorage.setItem('aiorder.api', base);
+    return base;
+  }
+  async function doFetch(url, opts){
+    $('out').textContent = 'FETCH ' + url + ' …';
+    const r = await fetch(url, opts);
+    const text = await r.text();
+    let body;
+    try { body = JSON.parse(text); } catch { body = text; }
+    $('out').textContent = 'HTTP ' + r.status + ' ' + r.statusText + ':\n' +
+      (typeof body === 'string' ? body : JSON.stringify(body, null, 2));
+  }
+
+  $('health').onclick = async ()=>{
+    const base = setApi($('api').value);
+    if (!base) return $('out').textContent = 'Unesi API Base URL.';
+    try { await doFetch(base + '/health'); }
+    catch(e){ $('out').textContent = 'ERROR: ' + (e && e.message || e); }
+  };
+
+  $('sync').onclick = async ()=>{
+    const base = setApi($('api').value);
+    if (!base) return $('out').textContent = 'Unesi API Base URL.';
+    const url = base + '/sync?withInventory=1&maxOrders=10&maxProducts=100&export=0';
+    try { await doFetch(url, { method: 'POST' }); }
+    catch(e){ $('out').textContent = 'ERROR: ' + (e && e.message || e); }
+  };
+</script>
